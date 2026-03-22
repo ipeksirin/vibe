@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-vibe-bg text-vibe-text font-sans antialiased;
+  }
+}
+
+@layer components {
+  .genre-pill {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium tracking-wide uppercase cursor-pointer transition-all duration-200 select-none;
+  }
+
+  .genre-pill-inactive {
+    @apply genre-pill bg-vibe-muted text-vibe-text-muted border border-vibe-border hover:border-vibe-purple hover:text-vibe-purple-light;
+  }
+
+  .genre-pill-active {
+    @apply genre-pill bg-vibe-purple text-white border border-vibe-purple shadow-[0_0_12px_rgba(124,58,237,0.4)];
+  }
+
+  .event-card {
+    @apply bg-vibe-card border border-vibe-border rounded-xl overflow-hidden transition-all duration-300
+           hover:border-vibe-purple/40 hover:shadow-[0_0_24px_rgba(124,58,237,0.15)]
+           hover:-translate-y-0.5 cursor-pointer;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-vibe-purple hover:bg-vibe-purple-light text-white text-sm font-semibold rounded-lg
+           transition-all duration-200 shadow-[0_0_16px_rgba(124,58,237,0.3)] hover:shadow-[0_0_20px_rgba(124,58,237,0.5)];
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 bg-transparent hover:bg-vibe-muted text-vibe-text-muted hover:text-vibe-text text-sm font-medium rounded-lg
+           border border-vibe-border hover:border-vibe-purple/50 transition-all duration-200;
+  }
+}
+
+@layer utilities {
+  .text-glow-purple {
+    text-shadow: 0 0 20px rgba(124, 58, 237, 0.8);
+  }
+  .text-glow-pink {
+    text-shadow: 0 0 20px rgba(236, 72, 153, 0.8);
+  }
+}
