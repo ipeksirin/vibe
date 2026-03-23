@@ -12,6 +12,9 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
   const [selectedGenres, setSelectedGenres] = useState([])
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [venueSearch, setVenueSearch] = useState('')
   const [scraperStatus, setScraperStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const [scraping, setScraping] = useState(false)
@@ -25,11 +28,22 @@ export default function App() {
     return () => clearInterval(interval)
   }, [])
 
-  // Load events when filters or user change
+  // Load events when filters or user change (without date filter — date requires manual search)
   useEffect(() => {
     if (tab === 'all') loadEvents()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGenres, currentUser, tab])
+
+  const handleSearch = () => {
+    loadEvents(dateFrom, dateTo, venueSearch)
+  }
+
+  const handleClearFilters = () => {
+    setDateFrom('')
+    setDateTo('')
+    setVenueSearch('')
+    loadEvents()
+  }
 
   // Load recommendations when switching to For You tab or user changes
   useEffect(() => {
@@ -50,14 +64,16 @@ export default function App() {
     }
   }
 
-  const loadEvents = useCallback(async () => {
+  const loadEvents = useCallback(async (fromDate, toDate, venue) => {
     setLoading(true)
     setError(null)
     try {
       const params = { user_id: currentUser?.id, limit: 80 }
       if (selectedGenres.length === 1) params.genre = selectedGenres[0]
+      if (fromDate) params.date_from = fromDate
+      if (toDate) params.date_to = toDate
+      if (venue) params.venue = venue
       const data = await getEvents(params)
-      // Client-side multi-genre filter
       const filtered = selectedGenres.length > 1
         ? data.filter((e) => selectedGenres.some((g) => (e.genres || []).includes(g)))
         : data
@@ -215,7 +231,64 @@ export default function App() {
               </button>
             </div>
           </div>
-          <GenreFilter selected={selectedGenres} onToggle={handleGenreToggle} />
+          <GenreFilter selected={selectedGenres} onToggle={handleGenreToggle} onClearAll={handleClearGenres} />
+
+          {/* Date range + Search */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex items-center gap-2 bg-vibe-surface border border-vibe-border rounded-lg px-3 py-2">
+              <svg className="w-3.5 h-3.5 text-vibe-text-dim flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="bg-transparent text-xs text-vibe-text outline-none w-32 cursor-pointer"
+                placeholder="From"
+              />
+              <span className="text-vibe-text-dim text-xs">→</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="bg-transparent text-xs text-vibe-text outline-none w-32 cursor-pointer"
+                placeholder="To"
+              />
+            </div>
+            {/* Venue search */}
+            <div className="flex items-center gap-2 bg-vibe-surface border border-vibe-border rounded-lg px-3 py-2">
+              <svg className="w-3.5 h-3.5 text-vibe-text-dim flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <input
+                type="text"
+                value={venueSearch}
+                onChange={(e) => setVenueSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Venue..."
+                className="bg-transparent text-xs text-vibe-text outline-none w-28 placeholder:text-vibe-text-dim"
+              />
+            </div>
+
+            <button
+              onClick={handleSearch}
+              className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 bg-vibe-purple hover:bg-vibe-purple/80 text-white rounded-lg transition-all duration-200"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Search
+            </button>
+            {(dateFrom || dateTo || venueSearch) && (
+              <button
+                onClick={handleClearFilters}
+                className="text-xs text-vibe-text-dim hover:text-vibe-pink transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* No user selected — For You tab */}

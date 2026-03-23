@@ -11,43 +11,18 @@ logger = logging.getLogger(__name__)
 
 RA_API = "https://ra.co/graphql"
 
-QUERY = """
-query GET_EVENTS($filters: FilterInputDtoInput, $pageSize: Int) {
-  eventListings(filters: $filters, pageSize: $pageSize, page: 1, ordering: ASCENDING) {
-    data {
-      id
-      listingDate
-      event {
-        id
-        title
-        date
-        startTime
-        venue { name }
-        images { filename }
-        buy { url }
-        contentUrl
-        genres { name }
-      }
-    }
-  }
-}
-"""
-
-
 def scrape() -> list[dict]:
     today = datetime.utcnow().date()
-    end = today + timedelta(days=60)
+    end = today + timedelta(days=90)
+    date_gte = str(today - timedelta(days=1))
+    date_lte = str(end)
 
-    variables = {
-        "filters": {
-            "areas": {"eq": 31},       # Istanbul area ID on RA
-            "listingDate": {
-                "gte": str(today),
-                "lte": str(end),
-            },
-        },
-        "pageSize": 100,
-    }
+    query = (
+        "query { eventListings("
+        f'filters: {{ areas: {{ eq: 73 }}, listingDate: {{ gte: "{date_gte}", lte: "{date_lte}" }} }}, '
+        "pageSize: 100, page: 1) { data { event { title startTime "
+        "venue { name } images { filename } contentUrl genres { name } } } } }"
+    )
 
     headers = {
         "Content-Type": "application/json",
@@ -57,11 +32,7 @@ def scrape() -> list[dict]:
 
     try:
         with httpx.Client(timeout=30) as client:
-            r = client.post(
-                RA_API,
-                json={"query": QUERY, "variables": variables},
-                headers=headers,
-            )
+            r = client.post(RA_API, json={"query": query}, headers=headers)
             r.raise_for_status()
             data = r.json()
     except Exception as e:
@@ -98,11 +69,9 @@ def scrape() -> list[dict]:
             if fname:
                 image_url = f"https://static.ra.co/images/{fname}"
 
-        buy = ev.get("buy") or []
-        ticket_url = buy[0].get("url", "") if buy else ""
-
         content_url = ev.get("contentUrl", "")
         source_url = f"https://ra.co{content_url}" if content_url else ""
+        ticket_url = source_url  # RA ticket link is the event page
 
         ra_genres = [g.get("name", "") for g in (ev.get("genres") or [])]
         from scrapers.base import infer_genres

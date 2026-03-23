@@ -57,9 +57,23 @@ export function GenreTag({ genre, small = false }) {
   )
 }
 
-export default function GenreFilter({ selected, onToggle }) {
+export default function GenreFilter({ selected, onToggle, onClearAll }) {
+  const allActive = selected.length === 0
   return (
     <div className="flex flex-wrap gap-2">
+      {/* ALL button */}
+      <button
+        onClick={onClearAll}
+        className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide
+                    border transition-all duration-200 select-none
+                    ${allActive
+                      ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.2)]'
+                      : 'text-vibe-text-muted border-vibe-border bg-vibe-muted hover:bg-white/10 hover:text-white'
+                    }`}
+      >
+        All
+      </button>
+
       {ALL_GENRES.map((genre) => {
         const isActive = selected.includes(genre)
         const activeClass = ACTIVE_COLORS[genre] || 'bg-vibe-purple text-white border-vibe-purple'
