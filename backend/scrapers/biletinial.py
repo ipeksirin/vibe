@@ -65,6 +65,8 @@ def _parse_items(soup) -> list[dict]:
                 venue = small.get_text(strip=True) if small else addr.get_text(strip=True)
             if not venue:
                 venue = "Istanbul"
+            # Normalize venue name variants
+            venue = venue.replace("Life Park", "Lifepark")
 
             # Date — <span>Ağustos - 01</span> (last span in li)
             spans = li.select("span")
