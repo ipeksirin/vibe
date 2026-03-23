@@ -3,7 +3,8 @@ import json
 import os
 from contextlib import contextmanager
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "vibe.db")
+_DATA_DIR = os.environ.get("DATA_DIR", os.path.dirname(__file__))
+DB_PATH = os.path.join(_DATA_DIR, "vibe.db")
 
 
 def init_db():
@@ -86,10 +87,26 @@ def row_to_dict(row):
     return d
 
 
+VENUE_ALIASES = {
+    "zorlu": "Zorlu PSM",
+}
+
+
+def normalize_venue(venue: str) -> str:
+    if not venue:
+        return venue
+    lower = venue.lower()
+    for keyword, canonical in VENUE_ALIASES.items():
+        if keyword in lower:
+            return canonical
+    return venue
+
+
 def upsert_event(conn, event: dict, source: str) -> bool:
     """Insert event, skip if duplicate (same title+venue+date or same source_url). Returns True if inserted."""
     import json as _json
 
+    event = {**event, "venue": normalize_venue(event.get("venue", ""))}
     genres_json = _json.dumps(event.get("genres", []))
 
     # Dedup by source_url if available

@@ -1,9 +1,11 @@
 import logging
+import os
 import threading
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from db import get_db, init_db, row_to_dict
 from models import UserCreate
@@ -23,6 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+router = APIRouter(prefix="/api")
+
 
 @app.on_event("startup")
 def startup():
@@ -33,7 +37,7 @@ def startup():
 
 # ─── Events ───────────────────────────────────────────────────────────────────
 
-@app.get("/events")
+@router.get("/events")
 def list_events(
     genre: Optional[str] = None,
     city: Optional[str] = None,
@@ -85,7 +89,7 @@ def list_events(
 
 # ─── Venues ───────────────────────────────────────────────────────────────────
 
-@app.get("/venues")
+@router.get("/venues")
 def list_venues(q: Optional[str] = None, limit: int = 10):
     with get_db() as conn:
         if q:
@@ -103,7 +107,7 @@ def list_venues(q: Optional[str] = None, limit: int = 10):
 
 # ─── Likes ────────────────────────────────────────────────────────────────────
 
-@app.post("/events/{event_id}/like")
+@router.post("/events/{event_id}/like")
 def like_event(event_id: int, user_id: int):
     with get_db() as conn:
         if not conn.execute("SELECT 1 FROM events WHERE id=?", (event_id,)).fetchone():
@@ -119,7 +123,7 @@ def like_event(event_id: int, user_id: int):
         return {"user_id": user_id, "event_id": event_id, "liked": True}
 
 
-@app.delete("/events/{event_id}/like")
+@router.delete("/events/{event_id}/like")
 def unlike_event(event_id: int, user_id: int):
     with get_db() as conn:
         result = conn.execute(
@@ -132,7 +136,7 @@ def unlike_event(event_id: int, user_id: int):
 
 # ─── Recommendations ──────────────────────────────────────────────────────────
 
-@app.get("/recommendations/{user_id}")
+@router.get("/recommendations/{user_id}")
 def recommendations(user_id: int, limit: int = 20):
     with get_db() as conn:
         if not conn.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
@@ -142,14 +146,14 @@ def recommendations(user_id: int, limit: int = 20):
 
 # ─── Users ────────────────────────────────────────────────────────────────────
 
-@app.get("/users")
+@router.get("/users")
 def list_users():
     with get_db() as conn:
         rows = conn.execute("SELECT * FROM users ORDER BY created_at").fetchall()
         return [row_to_dict(r) for r in rows]
 
 
-@app.post("/users", status_code=201)
+@router.post("/users", status_code=201)
 def create_user(body: UserCreate):
     username = body.username.strip()
     if not username:
@@ -167,14 +171,14 @@ def create_user(body: UserCreate):
 
 # ─── Scraper ──────────────────────────────────────────────────────────────────
 
-@app.get("/scraper/run")
+@router.get("/scraper/run")
 def trigger_scrape():
     t = threading.Thread(target=run_all_scrapers, daemon=True)
     t.start()
     return {"status": "started", "message": "Scraper run started in background"}
 
 
-@app.get("/scraper/logs")
+@router.get("/scraper/logs")
 def scraper_logs(limit: int = 100):
     with get_db() as conn:
         rows = conn.execute(
@@ -183,7 +187,7 @@ def scraper_logs(limit: int = 100):
         return [row_to_dict(r) for r in rows]
 
 
-@app.get("/scraper/status")
+@router.get("/scraper/status")
 def scraper_status():
     with get_db() as conn:
         last = conn.execute(
@@ -191,3 +195,12 @@ def scraper_status():
         ).fetchone()
         count = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
         return {"last_run": last[0] if last else None, "event_count": count}
+
+
+# ─── Register router + serve frontend ─────────────────────────────────────────
+
+app.include_router(router)
+
+DIST_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+if os.path.isdir(DIST_DIR):
+    app.mount("/", StaticFiles(directory=DIST_DIR, html=True), name="static")

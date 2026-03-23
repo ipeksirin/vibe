@@ -15,20 +15,19 @@ function formatDate(dateStr) {
   }
 }
 
-function ImagePlaceholder({ title }) {
-  const colors = [
-    'from-violet-900 to-purple-950',
-    'from-indigo-900 to-blue-950',
-    'from-pink-900 to-rose-950',
-    'from-cyan-900 to-teal-950',
-    'from-fuchsia-900 to-purple-950',
-  ]
+function ImagePlaceholder({ title, isMeyhane }) {
+  const colors = isMeyhane
+    ? ['from-red-950 to-rose-950', 'from-red-900 to-orange-950', 'from-rose-950 to-red-900']
+    : ['from-violet-900 to-purple-950', 'from-indigo-900 to-blue-950', 'from-pink-900 to-rose-950', 'from-cyan-900 to-teal-950', 'from-fuchsia-900 to-purple-950']
   const color = colors[title.charCodeAt(0) % colors.length]
   const initials = title.split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('')
 
   return (
     <div className={`w-full h-full bg-gradient-to-br ${color} flex items-center justify-center`}>
-      <span className="text-4xl font-black text-white/20 select-none">{initials}</span>
+      {isMeyhane
+        ? <span className="text-5xl select-none">🍷</span>
+        : <span className="text-4xl font-black text-white/20 select-none">{initials}</span>
+      }
     </div>
   )
 }
@@ -59,10 +58,17 @@ export default function EventCard({ event, currentUserId, onLikeChange }) {
     }
   }
 
+  const isMeyhane = (event.genres || []).includes('meyhane')
+
   const handleTicketClick = (e) => {
     e.stopPropagation()
+    if (isMeyhane) {
+      const query = encodeURIComponent(`${event.venue} ${event.city || 'İstanbul'}`)
+      window.open(`https://www.google.com/maps/search/?api=1&query=${query}`, '_blank', 'noopener,noreferrer')
+      return
+    }
     const url = event.ticket_url || event.source_url
-    if (url) window.open(url, '_blank', 'noopener')
+    if (url && url.startsWith('http')) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   const genres = event.genres || []
@@ -80,7 +86,7 @@ export default function EventCard({ event, currentUserId, onLikeChange }) {
             loading="lazy"
           />
         ) : (
-          <ImagePlaceholder title={event.title} />
+          <ImagePlaceholder title={event.title} isMeyhane={isMeyhane} />
         )}
 
         {/* Gradient overlay */}
@@ -159,13 +165,13 @@ export default function EventCard({ event, currentUserId, onLikeChange }) {
         {/* Ticket button */}
         <button
           onClick={handleTicketClick}
-          disabled={!event.ticket_url && !event.source_url}
+          disabled={!isMeyhane && !event.ticket_url && !event.source_url}
           className="w-full mt-1 py-2 px-4 bg-vibe-purple/20 hover:bg-vibe-purple/30 border border-vibe-purple/30
                      hover:border-vibe-purple/60 text-vibe-purple-light text-sm font-semibold rounded-lg
                      transition-all duration-200 hover:shadow-[0_0_12px_rgba(124,58,237,0.2)]
                      disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          Get Tickets ↗
+          {isMeyhane ? 'Haritada Gör ↗' : 'Get Tickets ↗'}
         </button>
       </div>
     </article>

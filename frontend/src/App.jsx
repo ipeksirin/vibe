@@ -12,6 +12,8 @@ export default function App() {
   const [users, setUsers] = useState([])
   const [currentUser, setCurrentUser] = useState(null)
   const [selectedGenres, setSelectedGenres] = useState([])
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [selectedDistrict, setSelectedDistrict] = useState(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [venueSearch, setVenueSearch] = useState('')
@@ -35,7 +37,7 @@ export default function App() {
   useEffect(() => {
     if (tab === 'all') loadEvents()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGenres, currentUser, tab])
+  }, [selectedGenres, selectedCategory, selectedDistrict, currentUser, tab])
 
   const handleSearch = () => {
     loadEvents(dateFrom, dateTo, venueSearch)
@@ -104,13 +106,19 @@ export default function App() {
     setError(null)
     try {
       const params = { user_id: currentUser?.id, limit: 80 }
-      if (selectedGenres.length === 1) params.genre = selectedGenres[0]
+      // Category overrides genre pills for stand-up / meyhane
+      const effectiveGenres =
+        selectedCategory === 'stand-up' ? ['stand-up'] :
+        selectedCategory === 'meyhane' ? ['meyhane'] :
+        selectedGenres
+      if (effectiveGenres.length === 1) params.genre = effectiveGenres[0]
+      if (selectedCategory === 'meyhane' && selectedDistrict) params.city = selectedDistrict
       if (fromDate) params.date_from = fromDate
       if (toDate) params.date_to = toDate
       if (venue) params.venue = venue
       const data = await getEvents(params)
-      const filtered = selectedGenres.length > 1
-        ? data.filter((e) => selectedGenres.some((g) => (e.genres || []).includes(g)))
+      const filtered = effectiveGenres.length > 1
+        ? data.filter((e) => effectiveGenres.some((g) => (e.genres || []).includes(g)))
         : data
       setEvents(filtered)
     } catch (e) {
@@ -118,7 +126,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [selectedGenres, currentUser])
+  }, [selectedGenres, selectedCategory, selectedDistrict, currentUser])
 
   const loadRecommendations = useCallback(async () => {
     if (!currentUser) return
@@ -144,6 +152,14 @@ export default function App() {
     } catch {
       // silently fail
     }
+  }
+
+  const MEYHANE_DISTRICTS = ['Kadıköy', 'Beyoğlu', 'Beşiktaş', 'Üsküdar', 'Şişli', 'Fatih', 'Sarıyer']
+
+  const handleCategoryChange = (cat) => {
+    setSelectedCategory(cat)
+    setSelectedGenres([])
+    setSelectedDistrict(null)
   }
 
   const handleGenreToggle = (genre) => {
@@ -173,6 +189,22 @@ export default function App() {
     }
   }
 
+  const BG_THEME = {
+    'stand-up': {
+      bg: '#0d0900',
+      glow1: 'bg-amber-500/10',
+      glow2: 'bg-orange-500/8',
+      glow3: 'bg-amber-500/5',
+    },
+    'meyhane': {
+      bg: '#0f0004',
+      glow1: 'bg-red-700/12',
+      glow2: 'bg-rose-600/8',
+      glow3: 'bg-red-800/5',
+    },
+  }
+  const theme = BG_THEME[selectedCategory] || { bg: '#080810', glow1: 'bg-vibe-purple/10', glow2: 'bg-vibe-pink/8', glow3: 'bg-vibe-purple/5' }
+
   const displayedEvents = tab === 'for-you' ? recommendations : events
   const showForYouEmpty = tab === 'for-you' && !loading && recommendations.length === 0
 
@@ -193,12 +225,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-vibe-bg">
+    <div className="min-h-screen" style={{ backgroundColor: theme.bg, transition: 'background-color 0.6s ease' }}>
       {/* Background glow effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-vibe-purple/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-vibe-pink/8 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 w-96 h-96 bg-vibe-purple/5 rounded-full blur-3xl" />
+        <div className={`absolute -top-40 -left-40 w-96 h-96 ${theme.glow1} rounded-full blur-3xl transition-all duration-700`} />
+        <div className={`absolute top-1/3 -right-40 w-96 h-96 ${theme.glow2} rounded-full blur-3xl transition-all duration-700`} />
+        <div className={`absolute bottom-0 left-1/2 w-96 h-96 ${theme.glow3} rounded-full blur-3xl transition-all duration-700`} />
       </div>
 
       {/* Header */}
@@ -266,10 +298,26 @@ export default function App() {
               </button>
             </div>
           </div>
-          <GenreFilter selected={selectedGenres} onToggle={handleGenreToggle} onClearAll={handleClearGenres} />
+          <GenreFilter selected={selectedGenres} onToggle={handleGenreToggle} onClearAll={handleClearGenres} selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
 
           {/* Date range + Search */}
-          <div className="flex flex-wrap items-center gap-2 pt-1">
+          {selectedCategory === 'meyhane' && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {MEYHANE_DISTRICTS.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setSelectedDistrict(selectedDistrict === d ? null : d)}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition-all duration-200
+                    ${selectedDistrict === d
+                      ? 'bg-red-800 text-white border-red-700'
+                      : 'bg-vibe-surface border-vibe-border text-vibe-text-dim hover:border-red-700/50 hover:text-vibe-text'}`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+          {selectedCategory !== 'meyhane' && (<div className="flex flex-wrap items-center gap-2 pt-1">
             {/* Quick year buttons */}
             {['2026', '2027'].map((yr) => {
               const isActive = dateFrom === `${yr}-01-01` && dateTo === `${yr}-12-31`
@@ -359,6 +407,7 @@ export default function App() {
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* No user selected — For You tab */}

@@ -59,6 +59,8 @@ _GENRE_KEYWORDS: dict[str, list[str]] = {
     "festival": ["festival", " fest "],
     "dj-set": ["dj set", "dj-set", "b2b"],
     "acoustic": ["acoustic", "akustik", "unplugged"],
+    "stand-up": ["stand up", "stand-up", "standup", "komedi", "comedy"],
+    "meyhane": ["meyhane", "fasıl", "türkü", "halk müziği", "alaturka"],
 }
 
 _VENUE_GENRES: dict[str, list[str]] = {

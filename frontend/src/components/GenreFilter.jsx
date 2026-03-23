@@ -1,3 +1,9 @@
+const CATEGORIES = [
+  { id: 'music', label: 'MUSIC' },
+  { id: 'stand-up', label: 'STAND UP' },
+  { id: 'meyhane', label: 'MEYHANE' },
+]
+
 const ALL_GENRES = [
   'electronic', 'techno', 'house', 'deep-house', 'ambient',
   'rock', 'metal', 'alternative', 'indie', 'jazz',
@@ -57,39 +63,65 @@ export function GenreTag({ genre, small = false }) {
   )
 }
 
-export default function GenreFilter({ selected, onToggle, onClearAll }) {
+export default function GenreFilter({ selected, onToggle, onClearAll, selectedCategory, onCategoryChange }) {
+  const showGenres = !selectedCategory || selectedCategory === 'music'
   const allActive = selected.length === 0
-  return (
-    <div className="flex flex-wrap gap-2">
-      {/* ALL button */}
-      <button
-        onClick={onClearAll}
-        className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide
-                    border transition-all duration-200 select-none
-                    ${allActive
-                      ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.2)]'
-                      : 'text-vibe-text-muted border-vibe-border bg-vibe-muted hover:bg-white/10 hover:text-white'
-                    }`}
-      >
-        All
-      </button>
 
-      {ALL_GENRES.map((genre) => {
-        const isActive = selected.includes(genre)
-        const activeClass = ACTIVE_COLORS[genre] || 'bg-vibe-purple text-white border-vibe-purple'
-        const inactiveClass = GENRE_COLORS[genre] || 'text-vibe-text-muted border-vibe-border bg-vibe-muted'
-        return (
+  return (
+    <div className="space-y-2">
+      {/* Category row */}
+      <div className="flex gap-2">
+        {CATEGORIES.map((cat) => {
+          const isActive = selectedCategory === cat.id
+          return (
+            <button
+              key={cat.id}
+              onClick={() => onCategoryChange(isActive ? null : cat.id)}
+              className={`inline-flex items-center px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest
+                          border transition-all duration-200 select-none
+                          ${isActive
+                            ? 'bg-vibe-purple text-white border-vibe-purple shadow-[0_0_12px_rgba(124,58,237,0.4)]'
+                            : 'text-vibe-text-muted border-vibe-border bg-vibe-muted hover:bg-vibe-purple/20 hover:text-white hover:border-vibe-purple/50'
+                          }`}
+            >
+              {cat.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Genre pills — only visible under MUSIC */}
+      {showGenres && (
+        <div className="flex flex-wrap gap-2">
           <button
-            key={genre}
-            onClick={() => onToggle(genre)}
+            onClick={onClearAll}
             className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide
                         border transition-all duration-200 select-none
-                        ${isActive ? `${activeClass} shadow-[0_0_10px_rgba(0,0,0,0.3)]` : inactiveClass}`}
+                        ${allActive
+                          ? 'bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.2)]'
+                          : 'text-vibe-text-muted border-vibe-border bg-vibe-muted hover:bg-white/10 hover:text-white'
+                        }`}
           >
-            {genre}
+            All
           </button>
-        )
-      })}
+          {ALL_GENRES.map((genre) => {
+            const isActive = selected.includes(genre)
+            const activeClass = ACTIVE_COLORS[genre] || 'bg-vibe-purple text-white border-vibe-purple'
+            const inactiveClass = GENRE_COLORS[genre] || 'text-vibe-text-muted border-vibe-border bg-vibe-muted'
+            return (
+              <button
+                key={genre}
+                onClick={() => onToggle(genre)}
+                className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide
+                            border transition-all duration-200 select-none
+                            ${isActive ? `${activeClass} shadow-[0_0_10px_rgba(0,0,0,0.3)]` : inactiveClass}`}
+              >
+                {genre}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
