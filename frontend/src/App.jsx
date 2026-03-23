@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import EventCard from './components/EventCard.jsx'
 import GenreFilter from './components/GenreFilter.jsx'
 import UserSwitcher from './components/UserSwitcher.jsx'
 import TabBar from './components/TabBar.jsx'
-import { getEvents, getRecommendations, getUsers, getScraperStatus, triggerScrape } from './api.js'
+import { getEvents, getRecommendations, getUsers, getScraperStatus, triggerScrape, getVenues } from './api.js'
 
 export default function App() {
   const [tab, setTab] = useState('all')
@@ -15,6 +15,9 @@ export default function App() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [venueSearch, setVenueSearch] = useState('')
+  const [venueSuggestions, setVenueSuggestions] = useState([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const venueRef = useRef(null)
   const [scraperStatus, setScraperStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const [scraping, setScraping] = useState(false)
@@ -42,8 +45,40 @@ export default function App() {
     setDateFrom('')
     setDateTo('')
     setVenueSearch('')
+    setVenueSuggestions([])
+    setShowSuggestions(false)
     loadEvents()
   }
+
+  // Venue autocomplete
+  useEffect(() => {
+    if (!venueSearch.trim()) {
+      setVenueSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const results = await getVenues(venueSearch)
+        setVenueSuggestions(results)
+        setShowSuggestions(results.length > 0)
+      } catch {
+        setVenueSuggestions([])
+      }
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [venueSearch])
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (venueRef.current && !venueRef.current.contains(e.target)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Load recommendations when switching to For You tab or user changes
   useEffect(() => {
@@ -269,20 +304,41 @@ export default function App() {
                 className="bg-transparent text-xs text-vibe-text outline-none w-32 cursor-pointer"
               />
             </div>
-            {/* Venue search */}
-            <div className="flex items-center gap-2 bg-vibe-surface border border-vibe-border rounded-lg px-3 py-2">
-              <svg className="w-3.5 h-3.5 text-vibe-text-dim flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <input
-                type="text"
-                value={venueSearch}
-                onChange={(e) => setVenueSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Venue..."
-                className="bg-transparent text-xs text-vibe-text outline-none w-28 placeholder:text-vibe-text-dim"
-              />
+            {/* Venue search with autocomplete */}
+            <div ref={venueRef} className="relative">
+              <div className="flex items-center gap-2 bg-vibe-surface border border-vibe-border rounded-lg px-3 py-2">
+                <svg className="w-3.5 h-3.5 text-vibe-text-dim flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={venueSearch}
+                  onChange={(e) => setVenueSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (setShowSuggestions(false), handleSearch())}
+                  onFocus={() => venueSuggestions.length > 0 && setShowSuggestions(true)}
+                  placeholder="Venue..."
+                  className="bg-transparent text-xs text-vibe-text outline-none w-36 placeholder:text-vibe-text-dim"
+                />
+              </div>
+              {showSuggestions && (
+                <div className="absolute top-full mt-1 left-0 w-56 bg-vibe-surface border border-vibe-border rounded-lg shadow-xl z-50 overflow-hidden">
+                  {venueSuggestions.map((v) => (
+                    <button
+                      key={v}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setVenueSearch(v)
+                        setShowSuggestions(false)
+                        loadEvents(dateFrom, dateTo, v)
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-vibe-text hover:bg-vibe-purple/20 hover:text-white transition-colors"
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button

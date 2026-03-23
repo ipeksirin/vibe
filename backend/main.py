@@ -83,6 +83,24 @@ def list_events(
         return events
 
 
+# ─── Venues ───────────────────────────────────────────────────────────────────
+
+@app.get("/venues")
+def list_venues(q: Optional[str] = None, limit: int = 10):
+    with get_db() as conn:
+        if q:
+            rows = conn.execute(
+                "SELECT DISTINCT venue FROM events WHERE venue LIKE ? AND venue IS NOT NULL AND venue != '' ORDER BY venue LIMIT ?",
+                (f"%{q}%", limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT DISTINCT venue FROM events WHERE venue IS NOT NULL AND venue != '' ORDER BY venue LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [r[0] for r in rows]
+
+
 # ─── Likes ────────────────────────────────────────────────────────────────────
 
 @app.post("/events/{event_id}/like")

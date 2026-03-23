@@ -34,6 +34,12 @@ export const getUsers = () => req('/users')
 export const createUser = (username) =>
   req('/users', { method: 'POST', body: JSON.stringify({ username }) })
 
+// Venues
+export const getVenues = (q) => {
+  const params = q ? `?q=${encodeURIComponent(q)}&limit=8` : '?limit=8'
+  return req(`/venues${params}`)
+}
+
 // Scraper
 export const triggerScrape = () => req('/scraper/run')
 export const getScraperStatus = () => req('/scraper/status')
