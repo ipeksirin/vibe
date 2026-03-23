@@ -52,6 +52,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
             CREATE INDEX IF NOT EXISTS idx_events_venue ON events(venue);
             CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_events_unique ON events(title, date);
             CREATE INDEX IF NOT EXISTS idx_likes_user ON likes(user_id);
             CREATE INDEX IF NOT EXISTS idx_likes_event ON likes(event_id);
         """)

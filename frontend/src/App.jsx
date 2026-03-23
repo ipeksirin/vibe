@@ -235,6 +235,22 @@ export default function App() {
 
           {/* Date range + Search */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* Quick year buttons */}
+            {['2026', '2027'].map((yr) => {
+              const isActive = dateFrom === `${yr}-01-01` && dateTo === `${yr}-12-31`
+              return (
+                <button
+                  key={yr}
+                  onClick={() => { setDateFrom(`${yr}-01-01`); setDateTo(`${yr}-12-31`) }}
+                  className={`text-xs font-semibold px-3 py-2 rounded-lg border transition-all duration-200
+                    ${isActive
+                      ? 'bg-vibe-purple text-white border-vibe-purple'
+                      : 'bg-vibe-surface border-vibe-border text-vibe-text-dim hover:border-vibe-purple/50 hover:text-vibe-text'}`}
+                >
+                  {yr}
+                </button>
+              )
+            })}
             <div className="flex items-center gap-2 bg-vibe-surface border border-vibe-border rounded-lg px-3 py-2">
               <svg className="w-3.5 h-3.5 text-vibe-text-dim flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -244,7 +260,6 @@ export default function App() {
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
                 className="bg-transparent text-xs text-vibe-text outline-none w-32 cursor-pointer"
-                placeholder="From"
               />
               <span className="text-vibe-text-dim text-xs">→</span>
               <input
@@ -252,7 +267,6 @@ export default function App() {
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
                 className="bg-transparent text-xs text-vibe-text outline-none w-32 cursor-pointer"
-                placeholder="To"
               />
             </div>
             {/* Venue search */}
