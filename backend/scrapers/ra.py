@@ -13,16 +13,11 @@ RA_API = "https://ra.co/graphql"
 
 def scrape() -> list[dict]:
     today = datetime.utcnow().date()
-    end = today + timedelta(days=90)
+    # Fetch up to end of 2027
+    from datetime import date
+    end = date(2027, 12, 31)
     date_gte = str(today - timedelta(days=1))
     date_lte = str(end)
-
-    query = (
-        "query { eventListings("
-        f'filters: {{ areas: {{ eq: 73 }}, listingDate: {{ gte: "{date_gte}", lte: "{date_lte}" }} }}, '
-        "pageSize: 100, page: 1) { data { event { title startTime "
-        "venue { name } images { filename } contentUrl genres { name } } } } }"
-    )
 
     headers = {
         "Content-Type": "application/json",
@@ -30,20 +25,32 @@ def scrape() -> list[dict]:
         "Referer": "https://ra.co/",
     }
 
-    try:
-        with httpx.Client(timeout=30) as client:
-            r = client.post(RA_API, json={"query": query}, headers=headers)
-            r.raise_for_status()
-            data = r.json()
-    except Exception as e:
-        logger.error(f"RA scraper failed: {e}")
-        return []
-
-    listings = (
-        data.get("data", {})
-        .get("eventListings", {})
-        .get("data", [])
-    )
+    listings = []
+    for page in range(1, 10):  # max 10 pages × 100 = 1000 events
+        query = (
+            "query { eventListings("
+            f'filters: {{ areas: {{ eq: 73 }}, listingDate: {{ gte: "{date_gte}", lte: "{date_lte}" }} }}, '
+            f"pageSize: 100, page: {page}) {{ data {{ event {{ title startTime "
+            "venue { name } images { filename } contentUrl genres { name } } } } }"
+        )
+        try:
+            with httpx.Client(timeout=30) as client:
+                r = client.post(RA_API, json={"query": query}, headers=headers)
+                r.raise_for_status()
+                data = r.json()
+            page_listings = (
+                (data.get("data") or {})
+                .get("eventListings", {})
+                .get("data", [])
+            )
+            if not page_listings:
+                break
+            listings.extend(page_listings)
+            if len(page_listings) < 100:
+                break  # last page
+        except Exception as e:
+            logger.error(f"RA scraper page {page} failed: {e}")
+            break
 
     events = []
     for item in listings:
