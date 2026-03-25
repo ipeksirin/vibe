@@ -1,158 +1,175 @@
 """
-Meyhane & Fasıl Mekanları — OpenStreetMap Overpass API
-Rakı, meze, fasıl, türkü — İstanbul meyhane kültürü.
+Meyhane & Fasıl Mekanları — Foursquare Places API
+Rakı, meze, fasıl — İstanbul meyhane kültürü.
 """
 import logging
-import urllib.parse
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+from concurrent.futures import ThreadPoolExecutor
+
 import httpx
-from bs4 import BeautifulSoup
-from scrapers.base import fetch_json
+
+# .env dosyasından yükle
+_env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            if "=" in _line and not _line.startswith("#"):
+                _k, _v = _line.strip().split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
+FSQ_KEY = os.environ.get("FOURSQUARE_API_KEY", "")
 
 logger = logging.getLogger(__name__)
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+FSQ_BASE = "https://api.foursquare.com/v3"
 
-# Geniş meyhane/rakı/meze sorgusu — İstanbul bbox
-OVERPASS_QUERY = """
-[out:json][timeout:45];
-(
-  nwr["name"~"meyhane|fasıl|fasil|türkü|raki bar|rakı bar",i]
-     ["amenity"~"restaurant|bar|pub|cafe"]
-     (40.85,28.60,41.20,29.40);
-  nwr["amenity"~"restaurant|bar"]
-     ["cuisine"~"turkish|meze|raki",i]
-     (40.85,28.60,41.20,29.40);
-  nwr["amenity"~"restaurant|bar"]
-     ["drink:raki"="yes"]
-     (40.85,28.60,41.20,29.40);
-  nwr["amenity"~"restaurant|bar"]
-     ["name"~"balık|balik|taverna|taverma|ocakbaşı|ocakbasi",i]
-     ["cuisine"~"turkish|seafood",i]
-     (40.85,28.60,41.20,29.40);
-  nwr["amenity"~"restaurant|bar"]
-     ["name"~"lokanta|meyhane|meze|rakı|raki",i]
-     (40.85,28.60,41.20,29.40);
-);
-out center tags;
-"""
-
+# İstanbul ilçeleri — merkez koordinatları
 DISTRICTS = [
-    ("Kadıköy",  40.960, 29.010, 40.995, 29.090),
-    ("Beyoğlu",  41.010, 28.955, 41.050, 29.005),
-    ("Beşiktaş", 41.030, 29.000, 41.075, 29.045),
-    ("Üsküdar",  41.010, 29.010, 41.065, 29.080),
-    ("Şişli",    41.045, 28.965, 41.085, 29.015),
-    ("Fatih",    40.990, 28.890, 41.030, 28.980),
-    ("Sarıyer",  41.080, 29.010, 41.160, 29.080),
-    ("Karaköy",  41.018, 28.970, 41.032, 28.990),
-    ("Moda",     40.974, 29.023, 40.984, 29.040),
-    ("Bağcılar", 41.030, 28.840, 41.060, 28.880),
+    ("Kadıköy",  40.9833, 29.0299),
+    ("Beyoğlu",  41.0338, 28.9743),
+    ("Beşiktaş", 41.0430, 29.0057),
+    ("Üsküdar",  41.0230, 29.0152),
+    ("Şişli",    41.0602, 28.9877),
+    ("Fatih",    41.0166, 28.9397),
+    ("Sarıyer",  41.1651, 29.0576),
+    ("Karaköy",  41.0228, 28.9742),
+    ("Moda",     40.9796, 29.0304),
+    ("Balat",    41.0297, 28.9494),
+    ("Asmalımescit", 41.0303, 28.9753),
+    ("Çengelköy", 41.0573, 29.0699),
 ]
 
-# Yer adında olması gereken — gürültülü sonuçları filtrele
+# Foursquare kategori ID — Bar & Nightlife > Bar
+# 13003 = Bar, 13065 = Raki Bar, 13032 = Lounge
+FSQ_CATEGORIES = "13003,13065,13032"
+
+# Arama terimleri
+SEARCH_QUERIES = ["meyhane", "fasıl", "rakı bar", "meze restaurant"]
+
+# Adında bu kelimelerden biri olmayan yerleri çıkar
 MEYHANE_SIGNALS = {
-    "meyhane", "fasıl", "fasil", "türkü", "raki", "rakı",
-    "meze", "balık", "balik", "taverna", "ocakbaşı", "ocakbasi",
+    "meyhane", "fasıl", "fasil", "rakı", "raki", "meze",
+    "balık evi", "balik evi", "taverna", "ocakbaşı", "ocakbasi",
+}
+
+# Kesinlikle meyhane olmayan yer türleri — çıkar
+EXCLUDE_SIGNALS = {
+    "mantı", "manti", "döner", "doner", "cafe", "kahve",
+    "türkü evi", "turku evi", "pastane", "fırın", "firin",
+    "pizza", "burger", "sushi", "noodle",
 }
 
 
-def _get_district(lat: float, lon: float, tags: dict) -> str:
-    for tag in ("addr:district", "addr:suburb", "addr:quarter", "addr:neighbourhood"):
-        val = tags.get(tag, "").strip()
-        if val:
-            return val
-    for name, min_lat, min_lon, max_lat, max_lon in DISTRICTS:
-        if min_lat <= lat <= max_lat and min_lon <= lon <= max_lon:
-            return name
-    return "Istanbul"
-
-
-def _fetch_og_image(url: str) -> str:
+def _fetch_places(query: str, lat: float, lon: float) -> list[dict]:
+    if not FSQ_KEY:
+        return []
+    headers = {"Authorization": FSQ_KEY, "Accept": "application/json"}
+    params = {
+        "query": query,
+        "ll": f"{lat},{lon}",
+        "radius": 1500,
+        "limit": 50,
+        "categories": FSQ_CATEGORIES,
+        "fields": "fsq_id,name,location,photos,website,categories",
+    }
     try:
-        with httpx.Client(timeout=8, follow_redirects=True,
-                          headers={"User-Agent": "Mozilla/5.0"}) as client:
-            r = client.get(url)
+        with httpx.Client(timeout=10, headers=headers) as client:
+            r = client.get(f"{FSQ_BASE}/places/search", params=params)
             r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
-        for prop in ("og:image", "twitter:image"):
-            tag = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
-            if tag:
-                content = tag.get("content", "").strip()
-                if content and content.startswith("http"):
-                    return content
-    except Exception:
-        pass
+            return r.json().get("results", [])
+    except Exception as e:
+        logger.warning(f"FSQ search error ({query} @ {lat},{lon}): {e}")
+        return []
+
+
+def _get_photo(fsq_id: str) -> str:
+    if not FSQ_KEY:
+        return ""
+    headers = {"Authorization": FSQ_KEY, "Accept": "application/json"}
+    try:
+        with httpx.Client(timeout=8, headers=headers) as client:
+            r = client.get(f"{FSQ_BASE}/places/{fsq_id}/photos", params={"limit": 1})
+            r.raise_for_status()
+            photos = r.json()
+            if photos:
+                p = photos[0]
+                return f"{p['prefix']}400x300{p['suffix']}"
+    except Exception as e:
+        logger.debug(f"FSQ photo error {fsq_id}: {e}")
     return ""
 
 
-def _get_image(tags: dict) -> str:
-    # 1. Doğrudan image tag'i
-    img = tags.get("image", "").strip()
-    if img and img.startswith("http"):
-        return img
+def _is_meyhane(name: str, categories: list) -> bool:
+    name_lower = name.lower()
 
-    # 2. Wikimedia Commons
-    wmc = tags.get("wikimedia_commons", "").strip()
-    if wmc:
-        # "File:Foo.jpg" → URL
-        filename = wmc.replace("File:", "").replace("Category:", "")
-        if filename:
-            encoded = urllib.parse.quote(filename.replace(" ", "_"))
-            return f"https://commons.wikimedia.org/wiki/Special:FilePath/{encoded}?width=400"
+    # Kesinlikle meyhane değilse çıkar
+    if any(ex in name_lower for ex in EXCLUDE_SIGNALS):
+        return False
 
-    # 3. Mapillary (sadece varsa)
-    mapillary = tags.get("mapillary", "").strip()
-    if mapillary:
-        return f"https://images.mapillary.com/{mapillary}/thumb-320.jpg"
+    # Adında meyhane sinyali varsa kabul et
+    if any(s in name_lower for s in MEYHANE_SIGNALS):
+        return True
 
-    return ""
+    # Foursquare kategorisi "Bar" veya "Raki Bar" ise kabul et
+    cat_names = [c.get("name", "").lower() for c in categories]
+    if any("raki" in c or "meyhane" in c or "fasil" in c or "fasıl" in c for c in cat_names):
+        return True
+
+    return False
 
 
 def scrape() -> list[dict]:
-    data = fetch_json(OVERPASS_URL, params={"data": OVERPASS_QUERY})
-    if not data:
-        logger.warning("Meyhane/Overpass: veri gelmedi")
+    if not FSQ_KEY:
+        logger.warning("Meyhane: FOURSQUARE_API_KEY eksik, scrape atlandı")
         return []
 
-    events = []
-    seen = set()
+    raw: list[dict] = []
 
-    for element in data.get("elements", []):
-        tags = element.get("tags", {})
-        name = tags.get("name", "").strip()
+    # Her ilçe × her sorgu için paralel arama
+    tasks = [(q, lat, lon, district) for district, lat, lon in DISTRICTS for q in SEARCH_QUERIES]
+
+    def _search(task):
+        query, lat, lon, district = task
+        results = _fetch_places(query, lat, lon)
+        return district, results
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for district, results in pool.map(_search, tasks):
+            for place in results:
+                place["_district"] = district
+                raw.append(place)
+
+    # Tekrar edenleri ve alakasızları çıkar
+    seen: set[str] = set()
+    events: list[dict] = []
+
+    for place in raw:
+        fsq_id = place.get("fsq_id", "")
+        if fsq_id in seen:
+            continue
+
+        name = place.get("name", "").strip()
         if not name:
             continue
 
-        # Sadece gerçek meyhane sinyali taşıyanları al
-        name_lower = name.lower()
-        has_signal = any(s in name_lower for s in MEYHANE_SIGNALS)
-        has_cuisine = any(s in tags.get("cuisine", "").lower() for s in ("turkish", "meze", "raki"))
-        has_raki_tag = tags.get("drink:raki") == "yes"
-        if not (has_signal or has_cuisine or has_raki_tag):
+        categories = place.get("categories", [])
+        if not _is_meyhane(name, categories):
             continue
 
-        if name in seen:
-            continue
-        seen.add(name)
+        seen.add(fsq_id)
 
-        lat = element.get("lat") or (element.get("center") or {}).get("lat")
-        lon = element.get("lon") or (element.get("center") or {}).get("lon")
-        if not lat or not lon:
-            continue
+        loc = place.get("location", {})
+        district = place.get("_district") or loc.get("locality", "Istanbul")
 
-        district = _get_district(float(lat), float(lon), tags)
+        # Fotoğraf — önce inline, yoksa ayrı istek
+        photo_url = ""
+        photos = place.get("photos", [])
+        if photos:
+            p = photos[0]
+            photo_url = f"{p['prefix']}400x300{p['suffix']}"
 
-        osm_type = element.get("type", "node")
-        osm_id = element.get("id", "")
-        source_url = f"https://www.openstreetmap.org/{osm_type}/{osm_id}"
-
-        website = tags.get("website", "") or tags.get("contact:website", "") or tags.get("url", "")
-        image_url = _get_image(tags)
-
-        address = tags.get("addr:street", "")
-        if tags.get("addr:housenumber"):
-            address = f"{address} {tags['addr:housenumber']}".strip()
+        website = place.get("website", "") or ""
+        source_url = f"https://foursquare.com/v/{fsq_id}"
 
         events.append({
             "title": name,
@@ -161,27 +178,26 @@ def scrape() -> list[dict]:
             "genres": ["meyhane"],
             "city": district,
             "ticket_url": website or source_url,
-            "image_url": image_url,
-            "_website": website,   # geçici, og:image için
+            "image_url": photo_url,
             "source_url": source_url,
+            "_fsq_id": fsq_id,
         })
 
-    # Website olan mekânlar için paralel og:image çek
-    needs_image = [(i, e["_website"]) for i, e in enumerate(events)
-                   if not e["image_url"] and e["_website"]]
-    if needs_image:
-        logger.info(f"Meyhane: {len(needs_image)} mekan için og:image çekiliyor...")
-        with ThreadPoolExecutor(max_workers=10) as pool:
-            futures = {pool.submit(_fetch_og_image, url): i for i, url in needs_image}
-            for future in as_completed(futures):
-                idx = futures[future]
-                img = future.result()
+    # Fotoğrafı olmayanlar için ayrı istek at
+    needs_photo = [(i, e) for i, e in enumerate(events) if not e["image_url"]]
+    if needs_photo:
+        logger.info(f"Meyhane: {len(needs_photo)} mekan için fotoğraf çekiliyor...")
+        def _fetch(item):
+            i, e = item
+            return i, _get_photo(e["_fsq_id"])
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for i, img in pool.map(_fetch, needs_photo):
                 if img:
-                    events[idx]["image_url"] = img
+                    events[i]["image_url"] = img
 
-    # Geçici _website alanını temizle
+    # Geçici alanları temizle
     for e in events:
-        e.pop("_website", None)
+        e.pop("_fsq_id", None)
 
-    logger.info(f"Meyhane/Overpass: {len(events)} mekan bulundu")
+    logger.info(f"Meyhane/Foursquare: {len(events)} mekan bulundu")
     return events
