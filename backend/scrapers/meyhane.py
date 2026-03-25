@@ -1,6 +1,6 @@
 """
-Meyhane & Fasıl Mekanları — Foursquare Places API
-Rakı, meze, fasıl — İstanbul meyhane kültürü.
+Meyhane Mekanları — Foursquare Places API
+Sadece gerçek İstanbul meyhaneleri: yeni, tarihi, nostaljik.
 """
 import logging
 import os
@@ -8,7 +8,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
-# .env dosyasından yükle
 _env_path = os.path.join(os.path.dirname(__file__), "..", ".env")
 if os.path.exists(_env_path):
     with open(_env_path) as _f:
@@ -20,43 +19,45 @@ if os.path.exists(_env_path):
 FSQ_KEY = os.environ.get("FOURSQUARE_API_KEY", "")
 
 logger = logging.getLogger(__name__)
-
 FSQ_BASE = "https://api.foursquare.com/v3"
 
-# İstanbul ilçeleri — merkez koordinatları
+# İstanbul ilçeleri
 DISTRICTS = [
-    ("Kadıköy",  40.9833, 29.0299),
-    ("Beyoğlu",  41.0338, 28.9743),
-    ("Beşiktaş", 41.0430, 29.0057),
-    ("Üsküdar",  41.0230, 29.0152),
-    ("Şişli",    41.0602, 28.9877),
-    ("Fatih",    41.0166, 28.9397),
-    ("Sarıyer",  41.1651, 29.0576),
-    ("Karaköy",  41.0228, 28.9742),
-    ("Moda",     40.9796, 29.0304),
-    ("Balat",    41.0297, 28.9494),
+    ("Kadıköy",      40.9833, 29.0299),
+    ("Beyoğlu",      41.0338, 28.9743),
+    ("Beşiktaş",     41.0430, 29.0057),
+    ("Üsküdar",      41.0230, 29.0152),
+    ("Şişli",        41.0602, 28.9877),
+    ("Fatih",        41.0166, 28.9397),
+    ("Sarıyer",      41.1651, 29.0576),
+    ("Karaköy",      41.0228, 28.9742),
+    ("Moda",         40.9796, 29.0304),
+    ("Balat",        41.0297, 28.9494),
     ("Asmalımescit", 41.0303, 28.9753),
-    ("Çengelköy", 41.0573, 29.0699),
+    ("Çengelköy",    41.0573, 29.0699),
 ]
 
-# Foursquare kategori ID — Bar & Nightlife > Bar
-# 13003 = Bar, 13065 = Raki Bar, 13032 = Lounge
-FSQ_CATEGORIES = "13003,13065,13032"
+# Sadece "meyhane" araması — en spesifik Türkçe terim
+SEARCH_QUERIES = ["meyhane", "rakı meyhane"]
 
-# Arama terimleri
-SEARCH_QUERIES = ["meyhane", "fasıl", "rakı bar", "meze restaurant"]
+# Foursquare: Bar kategorileri (Raki Bar dahil)
+FSQ_CATEGORIES = "13003,13065"
 
-# Adında bu kelimelerden biri olmayan yerleri çıkar
-MEYHANE_SIGNALS = {
-    "meyhane", "fasıl", "fasil", "rakı", "raki", "meze",
-    "balık evi", "balik evi", "taverna", "ocakbaşı", "ocakbasi",
+# Kesin meyhane sinyalleri — adında bunlardan biri OLMAK ZORUNDA
+MEYHANE_NAME_SIGNALS = {
+    "meyhane", "meyhanesi", "meyhaneler",
+    "rakı evi", "raki evi",
 }
 
-# Kesinlikle meyhane olmayan yer türleri — çıkar
+# Foursquare kategori adında meyhane/raki geçiyorsa da kabul et
+FSQ_CAT_SIGNALS = {"raki", "meyhane"}
+
+# Bunlar adında geçiyorsa kesinlikle çıkar
 EXCLUDE_SIGNALS = {
-    "mantı", "manti", "döner", "doner", "cafe", "kahve",
-    "türkü evi", "turku evi", "pastane", "fırın", "firin",
-    "pizza", "burger", "sushi", "noodle",
+    "türkü", "turku", "konser", "concert", "müzik", "muzik",
+    "cafe", "kahve", "pastane", "fırın", "pizza", "burger",
+    "mantı", "döner", "sushi", "noodle", "kebap", "kebab",
+    "bar", "pub", "lounge", "club", "gece kulübü",
 }
 
 
@@ -67,10 +68,10 @@ def _fetch_places(query: str, lat: float, lon: float) -> list[dict]:
     params = {
         "query": query,
         "ll": f"{lat},{lon}",
-        "radius": 1500,
+        "radius": 2000,
         "limit": 50,
         "categories": FSQ_CATEGORIES,
-        "fields": "fsq_id,name,location,photos,website,categories",
+        "fields": "fsq_id,name,location,photos,website,categories,rating,popularity",
     }
     try:
         with httpx.Client(timeout=10, headers=headers) as client:
@@ -102,17 +103,17 @@ def _get_photo(fsq_id: str) -> str:
 def _is_meyhane(name: str, categories: list) -> bool:
     name_lower = name.lower()
 
-    # Kesinlikle meyhane değilse çıkar
+    # Dışlama listesinde geçiyorsa çıkar
     if any(ex in name_lower for ex in EXCLUDE_SIGNALS):
         return False
 
-    # Adında meyhane sinyali varsa kabul et
-    if any(s in name_lower for s in MEYHANE_SIGNALS):
+    # Adında kesin meyhane sinyali varsa kabul et
+    if any(s in name_lower for s in MEYHANE_NAME_SIGNALS):
         return True
 
-    # Foursquare kategorisi "Bar" veya "Raki Bar" ise kabul et
+    # Foursquare kategorisi raki bar veya meyhane ise kabul et
     cat_names = [c.get("name", "").lower() for c in categories]
-    if any("raki" in c or "meyhane" in c or "fasil" in c or "fasıl" in c for c in cat_names):
+    if any(sig in cat for cat in cat_names for sig in FSQ_CAT_SIGNALS):
         return True
 
     return False
@@ -120,12 +121,10 @@ def _is_meyhane(name: str, categories: list) -> bool:
 
 def scrape() -> list[dict]:
     if not FSQ_KEY:
-        logger.warning("Meyhane: FOURSQUARE_API_KEY eksik, scrape atlandı")
+        logger.warning("Meyhane: FOURSQUARE_API_KEY eksik")
         return []
 
     raw: list[dict] = []
-
-    # Her ilçe × her sorgu için paralel arama
     tasks = [(q, lat, lon, district) for district, lat, lon in DISTRICTS for q in SEARCH_QUERIES]
 
     def _search(task):
@@ -139,7 +138,6 @@ def scrape() -> list[dict]:
                 place["_district"] = district
                 raw.append(place)
 
-    # Tekrar edenleri ve alakasızları çıkar
     seen: set[str] = set()
     events: list[dict] = []
 
@@ -161,7 +159,6 @@ def scrape() -> list[dict]:
         loc = place.get("location", {})
         district = place.get("_district") or loc.get("locality", "Istanbul")
 
-        # Fotoğraf — önce inline, yoksa ayrı istek
         photo_url = ""
         photos = place.get("photos", [])
         if photos:
@@ -183,7 +180,7 @@ def scrape() -> list[dict]:
             "_fsq_id": fsq_id,
         })
 
-    # Fotoğrafı olmayanlar için ayrı istek at
+    # Fotoğrafı olmayanlar için ayrı istek
     needs_photo = [(i, e) for i, e in enumerate(events) if not e["image_url"]]
     if needs_photo:
         logger.info(f"Meyhane: {len(needs_photo)} mekan için fotoğraf çekiliyor...")
@@ -195,7 +192,6 @@ def scrape() -> list[dict]:
                 if img:
                     events[i]["image_url"] = img
 
-    # Geçici alanları temizle
     for e in events:
         e.pop("_fsq_id", None)
 
