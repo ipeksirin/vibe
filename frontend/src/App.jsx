@@ -119,7 +119,7 @@ export default function App() {
       const params = { user_id: currentUser?.id, limit: 80 }
       if (effectiveGenres.length === 1) params.genre = effectiveGenres[0]
       else if (effectiveGenres.length > 1) params.genres = effectiveGenres
-      if (selectedCategory === 'music') params.exclude_genres = 'meyhane,stand-up'
+      if (selectedCategory === 'music' || !selectedCategory) params.exclude_genres = 'meyhane,stand-up'
       if (selectedCategory === 'meyhane' && selectedDistrict) params.city = selectedDistrict
       if (fromDate) params.date_from = fromDate
       if (toDate) params.date_to = toDate
