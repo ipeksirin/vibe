@@ -11,9 +11,7 @@ FROM python:3.11-slim
 WORKDIR /app/backend
 
 COPY backend/requirements.txt .
-RUN apt-get update && apt-get install -y --no-install-recommends gcc python3-dev && \
-    pip install --no-cache-dir -r requirements.txt && \
-    apt-get purge -y gcc python3-dev && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
