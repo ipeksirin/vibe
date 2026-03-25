@@ -15,7 +15,9 @@ async function req(path, options = {}) {
 // Events
 export const getEvents = (params = {}) => {
   const q = new URLSearchParams()
-  Object.entries(params).forEach(([k, v]) => v != null && v !== '' && q.set(k, v))
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null && v !== '') q.set(k, Array.isArray(v) ? v.join(',') : v)
+  })
   return req(`/events?${q}`)
 }
 

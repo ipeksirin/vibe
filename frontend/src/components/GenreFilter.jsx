@@ -64,8 +64,13 @@ export function GenreTag({ genre, small = false }) {
 }
 
 export default function GenreFilter({ selected, onToggle, onClearAll, selectedCategory, onCategoryChange }) {
-  const showGenres = !selectedCategory || selectedCategory === 'music'
+  const showMusicGenres = !selectedCategory || selectedCategory === 'music'
+  const showCategoryAll = selectedCategory === 'stand-up' || selectedCategory === 'meyhane'
   const allActive = selected.length === 0
+
+  const allBtnClass = `inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide
+                       border transition-all duration-200 select-none
+                       bg-white text-black border-white shadow-[0_0_10px_rgba(255,255,255,0.2)]`
 
   return (
     <div className="space-y-2">
@@ -91,7 +96,7 @@ export default function GenreFilter({ selected, onToggle, onClearAll, selectedCa
       </div>
 
       {/* Genre pills — only visible under MUSIC */}
-      {showGenres && (
+      {showMusicGenres && (
         <div className="flex flex-wrap gap-2">
           <button
             onClick={onClearAll}
@@ -120,6 +125,13 @@ export default function GenreFilter({ selected, onToggle, onClearAll, selectedCa
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* ALL pill — visible under STAND UP and MEYHANE */}
+      {showCategoryAll && (
+        <div className="flex flex-wrap gap-2">
+          <button className={allBtnClass}>All</button>
         </div>
       )}
     </div>

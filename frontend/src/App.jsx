@@ -105,22 +105,27 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const params = { user_id: currentUser?.id, limit: 80 }
-      // Category overrides genre pills for stand-up / meyhane
+      const MUSIC_GENRES = [
+        'electronic', 'techno', 'house', 'deep-house', 'ambient',
+        'rock', 'metal', 'alternative', 'indie', 'jazz',
+        'classical', 'pop', 'hip-hop', 'world-music',
+        'festival', 'dj-set', 'live', 'acoustic',
+      ]
       const effectiveGenres =
         selectedCategory === 'stand-up' ? ['stand-up'] :
         selectedCategory === 'meyhane' ? ['meyhane'] :
+        (selectedCategory === 'music' && selectedGenres.length === 0) ? MUSIC_GENRES :
         selectedGenres
+      const params = { user_id: currentUser?.id, limit: 80 }
       if (effectiveGenres.length === 1) params.genre = effectiveGenres[0]
+      else if (effectiveGenres.length > 1) params.genres = effectiveGenres
+      if (selectedCategory === 'music') params.exclude_genres = 'meyhane,stand-up'
       if (selectedCategory === 'meyhane' && selectedDistrict) params.city = selectedDistrict
       if (fromDate) params.date_from = fromDate
       if (toDate) params.date_to = toDate
       if (venue) params.venue = venue
       const data = await getEvents(params)
-      const filtered = effectiveGenres.length > 1
-        ? data.filter((e) => effectiveGenres.some((g) => (e.genres || []).includes(g)))
-        : data
-      setEvents(filtered)
+      setEvents(data)
     } catch (e) {
       setError('Failed to load events. Is the backend running?')
     } finally {

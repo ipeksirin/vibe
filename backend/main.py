@@ -43,6 +43,8 @@ def startup():
 @router.get("/events")
 def list_events(
     genre: Optional[str] = None,
+    genres: Optional[str] = None,
+    exclude_genres: Optional[str] = None,
     city: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
@@ -55,9 +57,21 @@ def list_events(
         query = "SELECT * FROM events WHERE 1=1"
         params: list = []
 
-        if genre:
+        if genres:
+            genre_list = [g.strip() for g in genres.split(',') if g.strip()]
+            if genre_list:
+                placeholders = ' OR '.join(['genres LIKE ?' for _ in genre_list])
+                query += f' AND ({placeholders})'
+                params.extend([f'%"{g}"%' for g in genre_list])
+        elif genre:
             query += ' AND genres LIKE ?'
             params.append(f'%"{genre}"%')
+
+        if exclude_genres:
+            for eg in [g.strip() for g in exclude_genres.split(',') if g.strip()]:
+                query += ' AND genres NOT LIKE ?'
+                params.append(f'%"{eg}"%')
+
         if city:
             query += " AND city = ?"
             params.append(city)
