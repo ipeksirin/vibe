@@ -9,6 +9,15 @@ logger = logging.getLogger(__name__)
 BASE = "https://zorlupsm.com"
 URL = f"{BASE}/etkinlikler"
 
+# Promosyon/genel sayfalar — gerçek etkinlik değil
+NON_EVENT_KEYWORDS = {
+    "hediye kart", "hediye kartı", "gösterim", "mastercard", "visa",
+    "psm genç", "uygulama fırsatları", "uygulama", "fırsatları",
+    "abonelik", "sezon kartı", "kurumsal", "sponsorluk",
+    "iletişim", "hakkımızda", "teknik", "salon kiralama",
+    "psm loves", "indirim", "kampanya",
+}
+
 MONTH_MAP = {
     "ocak": "01", "şubat": "02", "mart": "03", "nisan": "04",
     "mayıs": "05", "haziran": "06", "temmuz": "07", "ağustos": "08",
@@ -63,6 +72,11 @@ def scrape() -> list[dict]:
             title = re.split(cat_pattern, title, maxsplit=1, flags=re.IGNORECASE)[0].strip()
             title = re.sub(r"\s+", " ", title).strip()
             if not title or len(title) < 3:
+                continue
+
+            # Promosyon ve genel sayfaları çıkar
+            title_lower = title.lower()
+            if any(kw in title_lower for kw in NON_EVENT_KEYWORDS):
                 continue
 
             image_url = ""

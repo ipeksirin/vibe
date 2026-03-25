@@ -102,12 +102,35 @@ def normalize_venue(venue: str) -> str:
     return venue
 
 
+def migrate_normalize_genres(conn):
+    """One-time migration: normalize all existing genres to standard set."""
+    import json as _json
+    from scrapers.base import normalize_genres
+    rows = conn.execute("SELECT id, genres FROM events").fetchall()
+    updated = 0
+    for row in rows:
+        raw = row["genres"]
+        try:
+            genres = _json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            genres = ["live"]
+        normalized = normalize_genres(genres)
+        if normalized != genres:
+            conn.execute(
+                "UPDATE events SET genres = ? WHERE id = ?",
+                (_json.dumps(normalized), row["id"]),
+            )
+            updated += 1
+    return updated
+
+
 def upsert_event(conn, event: dict, source: str) -> bool:
     """Insert event, skip if duplicate (same title+venue+date or same source_url). Returns True if inserted."""
     import json as _json
+    from scrapers.base import normalize_genres
 
     event = {**event, "venue": normalize_venue(event.get("venue", ""))}
-    genres_json = _json.dumps(event.get("genres", []))
+    genres_json = _json.dumps(normalize_genres(event.get("genres", [])))
 
     # Dedup by source_url if available
     if event.get("source_url"):

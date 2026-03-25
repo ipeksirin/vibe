@@ -7,7 +7,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from db import get_db, init_db, row_to_dict
+from db import get_db, init_db, migrate_normalize_genres, row_to_dict
 from models import UserCreate
 from recommendations import get_recommendations
 from scheduler import run_all_scrapers, start_scheduler
@@ -34,6 +34,10 @@ router = APIRouter(prefix="/api")
 @app.on_event("startup")
 def startup():
     init_db()
+    with get_db() as conn:
+        updated = migrate_normalize_genres(conn)
+        if updated:
+            logger.info(f"Genre migration: {updated} events normalized")
     start_scheduler()
     logger.info("VIBE backend ready")
 
