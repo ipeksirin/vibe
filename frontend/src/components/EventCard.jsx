@@ -3,15 +3,15 @@ import { likeEvent, unlikeEvent } from '../api.js'
 import { GenreTag } from './GenreFilter.jsx'
 
 function formatDate(dateStr) {
-  if (!dateStr) return 'TBA'
+  if (!dateStr) return null
   try {
     const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return dateStr
-    return d.toLocaleDateString('en-GB', {
+    if (isNaN(d.getTime())) return null
+    return d.toLocaleDateString('tr-TR', {
       weekday: 'short', day: 'numeric', month: 'short',
-    }) + (dateStr.includes('T') ? ' · ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '')
+    }) + (dateStr.includes('T') ? ' · ' + d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '')
   } catch {
-    return dateStr
+    return null
   }
 }
 
@@ -142,12 +142,14 @@ export default function EventCard({ event, currentUserId, onLikeChange }) {
               <span className="truncate font-medium">{event.venue}</span>
             </div>
           )}
-          <div className="flex items-center gap-1.5 text-sm text-vibe-text-muted">
-            <svg className="w-3.5 h-3.5 flex-shrink-0 text-vibe-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span>{formatDate(event.date)}</span>
-          </div>
+          {formatDate(event.date) && (
+            <div className="flex items-center gap-1.5 text-sm text-vibe-text-muted">
+              <svg className="w-3.5 h-3.5 flex-shrink-0 text-vibe-pink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>{formatDate(event.date)}</span>
+            </div>
+          )}
         </div>
 
         {/* Genre tags */}
