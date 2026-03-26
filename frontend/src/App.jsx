@@ -124,7 +124,9 @@ export default function App() {
       if (toDate) params.date_to = toDate
       if (venue) params.venue = venue
       const data = await getEvents(params)
-      const filtered = effectiveGenres.length > 1
+      // Client-side filter only when user has explicitly selected 2+ genres
+      // (not when effectiveGenres is the auto-expanded MUSIC_GENRES list)
+      const filtered = (effectiveGenres.length > 1 && selectedGenres.length > 0)
         ? data.filter((e) => effectiveGenres.some((g) => (e.genres || []).includes(g)))
         : data
       setEvents(filtered)
