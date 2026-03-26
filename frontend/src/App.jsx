@@ -107,8 +107,8 @@ export default function App() {
     try {
       const MUSIC_GENRES = [
         'electronic', 'techno', 'house', 'deep-house', 'ambient',
-        'rock', 'metal', 'alternative', 'indie', 'jazz',
-        'classical', 'pop', 'hip-hop', 'world-music',
+        'rock', 'alternative', 'indie',
+        'classical', 'hip-hop',
         'festival', 'dj-set', 'live', 'acoustic',
       ]
       const effectiveGenres =
