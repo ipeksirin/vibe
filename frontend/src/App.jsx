@@ -200,7 +200,6 @@ export default function App() {
   }
 
   const handleReset = async () => {
-    if (!window.confirm('Tüm eventler silinip yeniden çekilecek. Emin misin?')) return
     setScraping(true)
     try {
       await resetAndScrape()
