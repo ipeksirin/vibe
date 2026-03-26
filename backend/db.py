@@ -130,7 +130,7 @@ def upsert_event(conn, event: dict, source: str) -> bool:
     from scrapers.base import normalize_genres
 
     event = {**event, "venue": normalize_venue(event.get("venue", ""))}
-    genres_json = _json.dumps(normalize_genres(event.get("genres", [])))
+    genres_json = _json.dumps(normalize_genres(event.get("genres", []))[:3])
 
     # Dedup by source_url if available
     if event.get("source_url"):
