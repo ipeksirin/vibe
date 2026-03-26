@@ -3,7 +3,7 @@ import EventCard from './components/EventCard.jsx'
 import GenreFilter from './components/GenreFilter.jsx'
 import UserSwitcher from './components/UserSwitcher.jsx'
 import TabBar from './components/TabBar.jsx'
-import { getEvents, getRecommendations, getUsers, getScraperStatus, triggerScrape, getVenues } from './api.js'
+import { getEvents, getRecommendations, getUsers, getScraperStatus, triggerScrape, resetAndScrape, getVenues } from './api.js'
 
 export default function App() {
   const [tab, setTab] = useState('all')
@@ -198,6 +198,21 @@ export default function App() {
     }
   }
 
+  const handleReset = async () => {
+    if (!window.confirm('Tüm eventler silinip yeniden çekilecek. Emin misin?')) return
+    setScraping(true)
+    try {
+      await resetAndScrape()
+      setTimeout(() => {
+        loadEvents()
+        loadScraperStatus()
+        setScraping(false)
+      }, 5000)
+    } catch {
+      setScraping(false)
+    }
+  }
+
   const BG_THEME = {
     'stand-up': {
       bg: '#0d0900',
@@ -304,6 +319,19 @@ export default function App() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 {scraping ? 'Scraping...' : 'Refresh'}
+              </button>
+              <button
+                onClick={handleReset}
+                disabled={scraping}
+                className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300
+                           px-3 py-1.5 bg-vibe-surface border border-red-500/30 rounded-lg
+                           hover:border-red-500/60 transition-all duration-200 disabled:opacity-50"
+                title="Tüm eventleri sil ve yeniden çek"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Reset
               </button>
             </div>
           </div>

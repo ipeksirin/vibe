@@ -199,6 +199,18 @@ def trigger_scrape():
     return {"status": "started", "message": "Scraper run started in background"}
 
 
+@router.post("/scraper/reset")
+def reset_and_scrape():
+    """Delete all events and re-run all scrapers from scratch."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM events")
+        conn.execute("DELETE FROM scraper_logs")
+        conn.commit()
+    t = threading.Thread(target=run_all_scrapers, daemon=True)
+    t.start()
+    return {"status": "started", "message": "Database cleared and scraper started"}
+
+
 @router.get("/scraper/logs")
 def scraper_logs(limit: int = 100):
     with get_db() as conn:

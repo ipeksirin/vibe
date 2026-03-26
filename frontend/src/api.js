@@ -44,5 +44,6 @@ export const getVenues = (q) => {
 
 // Scraper
 export const triggerScrape = () => req('/scraper/run')
+export const resetAndScrape = () => req('/scraper/reset', { method: 'POST' })
 export const getScraperStatus = () => req('/scraper/status')
 export const getScraperLogs = () => req('/scraper/logs?limit=20')
