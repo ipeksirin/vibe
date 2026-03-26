@@ -106,31 +106,17 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const MUSIC_GENRES = [
-        'electronic', 'techno', 'house', 'deep-house', 'ambient',
-        'rock', 'alternative', 'indie',
-        'classical', 'hip-hop',
-        'festival', 'dj-set', 'live', 'acoustic',
-      ]
-      const effectiveGenres =
-        selectedCategory === 'stand-up' ? ['stand-up'] :
-        selectedCategory === 'meyhane' ? ['meyhane'] :
-        (selectedCategory === 'music' && selectedGenres.length === 0) ? MUSIC_GENRES :
-        selectedGenres
-      const params = { user_id: currentUser?.id, limit: 80 }
-      if (effectiveGenres.length === 1) params.genre = effectiveGenres[0]
-      if (selectedCategory === 'music' || !selectedCategory) params.exclude_genres = 'meyhane,stand-up'
-      if (selectedCategory === 'meyhane' && selectedDistrict) params.city = selectedDistrict
+      const params = { user_id: currentUser?.id, limit: 200, city: 'Istanbul' }
+      if (selectedGenres.length === 1) params.genre = selectedGenres[0]
+      else if (selectedGenres.length > 1) params.genres = selectedGenres.join(',')
+      if (selectedCategory === 'stand-up') params.genre = 'stand-up'
+      else if (selectedCategory === 'meyhane') { params.genre = 'meyhane'; if (selectedDistrict) params.city = selectedDistrict }
+      else params.exclude_genres = 'meyhane,stand-up'
       if (fromDate) params.date_from = fromDate
       if (toDate) params.date_to = toDate
       if (venue) params.venue = venue
       const data = await getEvents(params)
-      // Client-side filter only when user has explicitly selected 2+ genres
-      // (not when effectiveGenres is the auto-expanded MUSIC_GENRES list)
-      const filtered = (effectiveGenres.length > 1 && selectedGenres.length > 0)
-        ? data.filter((e) => effectiveGenres.some((g) => (e.genres || []).includes(g)))
-        : data
-      setEvents(filtered)
+      setEvents(data)
     } catch (e) {
       setError('Failed to load events. Is the backend running?')
     } finally {
