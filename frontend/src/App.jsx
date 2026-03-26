@@ -118,14 +118,16 @@ export default function App() {
         selectedGenres
       const params = { user_id: currentUser?.id, limit: 80 }
       if (effectiveGenres.length === 1) params.genre = effectiveGenres[0]
-      else if (effectiveGenres.length > 1) params.genres = effectiveGenres
       if (selectedCategory === 'music' || !selectedCategory) params.exclude_genres = 'meyhane,stand-up'
       if (selectedCategory === 'meyhane' && selectedDistrict) params.city = selectedDistrict
       if (fromDate) params.date_from = fromDate
       if (toDate) params.date_to = toDate
       if (venue) params.venue = venue
       const data = await getEvents(params)
-      setEvents(data)
+      const filtered = effectiveGenres.length > 1
+        ? data.filter((e) => effectiveGenres.some((g) => (e.genres || []).includes(g)))
+        : data
+      setEvents(filtered)
     } catch (e) {
       setError('Failed to load events. Is the backend running?')
     } finally {
