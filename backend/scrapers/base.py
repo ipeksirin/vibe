@@ -126,19 +126,6 @@ _GENRE_KEYWORDS: dict[str, list[str]] = {
     "meyhane": ["meyhane"],
 }
 
-_VENUE_GENRES: dict[str, list[str]] = {
-    "nardis": ["jazz", "live"],
-    "klein": ["electronic", "techno", "dj-set"],
-    "arkaoda": ["indie", "alternative", "live"],
-    "dorock": ["rock", "metal", "live"],
-    "babylon": ["live", "indie", "alternative"],
-    "salon iksv": ["classical", "jazz", "live"],
-    "issanat": ["classical", "jazz", "live"],
-    "parkorman": ["electronic", "festival", "dj-set"],
-    "blind": ["electronic", "techno", "dj-set"],
-}
-
-
 def normalize_genres(genres: list[str]) -> list[str]:
     """Map any genre to the canonical standard set."""
     result = []
@@ -153,21 +140,18 @@ def normalize_genres(genres: list[str]) -> list[str]:
 
 
 def infer_genres(title: str, venue: str = "") -> list[str]:
-    text = (title + " " + venue).lower()
+    """Infer genres from event title using keyword matching only.
+    Venue-based defaults are intentionally excluded — each venue-specific
+    scraper adds its own defaults to avoid tagging cross-platform events
+    (e.g. biletinial listings) with wrong venue genres.
+    """
+    text = title.lower()
     found = []
 
     for genre, keywords in _GENRE_KEYWORDS.items():
         if any(kw in text for kw in keywords):
             found.append(genre)
 
-    # Venue-based defaults
-    for v_key, v_genres in _VENUE_GENRES.items():
-        if v_key in text:
-            for g in v_genres:
-                if g not in found:
-                    found.append(g)
-
-    # Fallback
     if not found:
         found = ["live"]
 

@@ -44,9 +44,14 @@ def scrape() -> list[dict]:
             venue_el = card.select_one(".venue, .mekan, .location")
             venue = venue_el.get_text(strip=True) if venue_el else "Babylon Bomonti"
 
+            genres = infer_genres(title, venue)
+            for g in ["live", "alternative"]:
+                if g not in genres:
+                    genres.append(g)
+
             events.append({
                 "title": title, "venue": venue, "date": date_str,
-                "genres": infer_genres(title, venue),
+                "genres": genres,
                 "city": "Istanbul", "ticket_url": source_url,
                 "image_url": image_url, "source_url": source_url,
             })
