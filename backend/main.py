@@ -17,13 +17,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="VIBE", description="Istanbul Event Discovery")
 
-_extra_origins = os.environ.get("ALLOWED_ORIGINS", "").split(",")
-_origins = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"] + [o for o in _extra_origins if o]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
