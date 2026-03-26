@@ -1,3 +1,4 @@
+// v2
 import { useState, useEffect, useCallback, useRef } from 'react'
 import EventCard from './components/EventCard.jsx'
 import GenreFilter from './components/GenreFilter.jsx'
